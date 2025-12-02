@@ -2,16 +2,40 @@
 
 Module contoh yang bisa dijadikan template untuk membuat module baru.
 
-## 📁 Struktur File
+## 📁 Struktur File (MVC Pattern)
 
 ```
 src/modules/example/
-├── handler.js              # Request handlers / Controllers
-├── postgre_repository.js   # Database operations
-├── validation.js           # Input validation rules
-├── index.js               # Route definitions
-└── README.md              # Dokumentasi module (ini)
+├── controller.js    # HTTP request/response handler (Controller Layer)
+├── service.js       # Business logic (Service Layer)
+├── repository.js    # Database operations (Repository/Model Layer)
+├── validation.js    # Input validation rules
+├── index.js         # Route definitions
+└── README.md        # Dokumentasi module (ini)
 ```
+
+### Arsitektur Layer
+
+1. **Controller Layer** (`controller.js`)
+   - Menangani HTTP request/response
+   - Memanggil service layer
+   - Tidak mengandung business logic
+
+2. **Service Layer** (`service.js`)
+   - Menangani semua business logic
+   - Memanggil repository layer
+   - Tempat untuk validasi bisnis dan aturan bisnis
+
+3. **Repository Layer** (`repository.js`)
+   - Menangani semua operasi database
+   - Hanya CRUD operations
+   - Tidak mengandung business logic
+
+4. **Validation Layer** (`validation.js`)
+   - Input validation rules menggunakan express-validator
+
+5. **Routes Layer** (`index.js`)
+   - Route definitions dan middleware
 
 ## 🎯 Fitur
 
@@ -281,29 +305,51 @@ Uncomment middleware `verifyToken` di `index.js`:
 ```javascript
 const { verifyToken } = require('../../middlewares');
 
-router.get('/', verifyToken, listValidation, handleValidationErrors, handler.getAll);
+router.get('/', verifyToken, listValidation, validateMiddleware, controller.getAll);
 ```
 
 ## 📚 Best Practices
 
-1. **Repository Pattern**: Semua database logic ada di `postgre_repository.js`
+1. **MVC Pattern**: Pisahkan kode menjadi 3 layer:
+   - **Controller**: Hanya HTTP request/response handling
+   - **Service**: Semua business logic
+   - **Repository**: Semua database operations
+
 2. **Error Handling**: Selalu gunakan try-catch dan return consistent response
-3. **Validation**: Validasi input sebelum masuk ke handler
+   - Controller menangani HTTP response
+   - Service throw error dengan statusCode
+   - Repository throw database errors
+
+3. **Validation**: Validasi input sebelum masuk ke controller
+   - Gunakan express-validator di `validation.js`
+   - Validation middleware di routes
+
 4. **Soft Delete**: Gunakan `deleted_at` untuk soft delete
+   - Semua query di repository harus filter `deleted_at: null`
+
 5. **Pagination**: Implement pagination untuk list endpoints
+   - Service layer memanggil repository dengan page & limit
+   - Repository return data dengan pagination metadata
+
 6. **Indexes**: Tambahkan index untuk kolom yang sering di-query
+
 7. **Timestamps**: Selalu include created_at, updated_at, deleted_at
+
 8. **UUID**: Gunakan UUID untuk primary key
+
 9. **Documentation**: Update Swagger documentation
 
 ## 🎯 Tips
 
 - Gunakan singular untuk nama module, plural untuk endpoint
-- Keep handlers thin, move logic to repository
+- **Controller harus thin**: Hanya HTTP handling, panggil service
+- **Service berisi business logic**: Validasi bisnis, aturan bisnis
+- **Repository hanya CRUD**: Tidak ada business logic
 - Use consistent naming convention
 - Add comments untuk logic yang kompleks
 - Write clear error messages
 - Test all endpoints before deploying
+- **Arus data**: Controller → Service → Repository
 
 ---
 

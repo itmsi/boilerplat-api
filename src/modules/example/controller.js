@@ -1,5 +1,12 @@
-const repository = require('./postgre_repository');
+const service = require('./service');
 const { baseResponse, errorResponse } = require('../../utils/response');
+
+/**
+ * Controller Layer - HTTP Request/Response Handler
+ * 
+ * Layer ini hanya menangani HTTP request dan response.
+ * Semua business logic dipindahkan ke service layer.
+ */
 
 /**
  * Get all items with pagination
@@ -7,7 +14,7 @@ const { baseResponse, errorResponse } = require('../../utils/response');
 const getAll = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
-    const data = await repository.findAll(page, limit);
+    const data = await service.getAllItems(page, limit);
     return baseResponse(res, { data });
   } catch (error) {
     return errorResponse(res, error);
@@ -20,12 +27,7 @@ const getAll = async (req, res) => {
 const getById = async (req, res) => {
   try {
     const { id } = req.params;
-    const data = await repository.findById(id);
-    
-    if (!data) {
-      return errorResponse(res, { message: 'Data tidak ditemukan' }, 404);
-    }
-    
+    const data = await service.getItemById(id);
     return baseResponse(res, { data });
   } catch (error) {
     return errorResponse(res, error);
@@ -37,7 +39,7 @@ const getById = async (req, res) => {
  */
 const create = async (req, res) => {
   try {
-    const data = await repository.create(req.body);
+    const data = await service.createItem(req.body);
     return baseResponse(res, { 
       data,
       message: 'Data berhasil dibuat' 
@@ -53,12 +55,7 @@ const create = async (req, res) => {
 const update = async (req, res) => {
   try {
     const { id } = req.params;
-    const data = await repository.update(id, req.body);
-    
-    if (!data) {
-      return errorResponse(res, { message: 'Data tidak ditemukan' }, 404);
-    }
-    
+    const data = await service.updateItem(id, req.body);
     return baseResponse(res, { 
       data,
       message: 'Data berhasil diupdate' 
@@ -74,12 +71,7 @@ const update = async (req, res) => {
 const remove = async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await repository.remove(id);
-    
-    if (!result) {
-      return errorResponse(res, { message: 'Data tidak ditemukan' }, 404);
-    }
-    
+    await service.deleteItem(id);
     return baseResponse(res, { 
       message: 'Data berhasil dihapus' 
     });
@@ -94,12 +86,7 @@ const remove = async (req, res) => {
 const restore = async (req, res) => {
   try {
     const { id } = req.params;
-    const data = await repository.restore(id);
-    
-    if (!data) {
-      return errorResponse(res, { message: 'Data tidak ditemukan' }, 404);
-    }
-    
+    const data = await service.restoreItem(id);
     return baseResponse(res, { 
       data,
       message: 'Data berhasil direstore' 

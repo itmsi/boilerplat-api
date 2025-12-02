@@ -3,6 +3,13 @@ const db = require('../../config/database');
 const TABLE_NAME = 'examples';
 
 /**
+ * Repository Layer - Database Operations
+ * 
+ * Layer ini menangani semua operasi database.
+ * Tidak ada business logic di sini, hanya CRUD operations.
+ */
+
+/**
  * Find all items with pagination
  */
 const findAll = async (page = 1, limit = 10) => {

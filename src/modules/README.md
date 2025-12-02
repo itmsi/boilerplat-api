@@ -2,18 +2,42 @@
 
 Folder ini berisi semua business logic modules dari aplikasi. Setiap module merepresentasikan satu fitur atau domain dalam aplikasi.
 
-## 📁 Struktur Module
+## 📁 Struktur Module (MVC Pattern)
 
-Setiap module sebaiknya memiliki struktur seperti berikut:
+Setiap module mengikuti standar MVC (Model-View-Controller) dengan struktur flat seperti berikut:
 
 ```
 src/modules/namaModule/
-├── index.js              # Export router dan handler
-├── handler.js            # Request handlers / Controllers
-├── validation.js         # Input validation rules
-├── postgre_repository.js # Database operations
-└── README.md            # Dokumentasi module (opsional)
+├── controller.js    # HTTP request/response handler (Controller Layer)
+├── service.js       # Business logic (Service Layer)
+├── repository.js    # Database operations (Repository/Model Layer)
+├── validation.js    # Input validation rules
+├── index.js         # Routes definitions
+└── README.md        # Dokumentasi module (opsional)
 ```
+
+### Arsitektur Layer
+
+1. **Controller Layer** (`controller.js`)
+   - Menangani HTTP request/response
+   - Memanggil service layer
+   - Tidak mengandung business logic
+
+2. **Service Layer** (`service.js`)
+   - Menangani semua business logic
+   - Memanggil repository layer
+   - Tempat untuk validasi bisnis dan aturan bisnis
+
+3. **Repository Layer** (`repository.js`)
+   - Menangani semua operasi database
+   - Hanya CRUD operations
+   - Tidak mengandung business logic
+
+4. **Validation Layer** (`validation.js`)
+   - Input validation rules menggunakan express-validator
+
+5. **Routes Layer** (`index.js`)
+   - Route definitions dan middleware
 
 ## 🏗️ Core Modules
 
@@ -37,18 +61,18 @@ Utility functions dan helper yang digunakan oleh berbagai module
 mkdir src/modules/namaModule
 ```
 
-### 2. Buat File Handler (`handler.js`)
+### 2. Buat File Controller (`controller.js`)
 
-Handler berisi logic untuk menangani HTTP request:
+Controller hanya menangani HTTP request/response:
 
 ```javascript
-const repository = require('./postgre_repository');
+const service = require('./service');
 const { baseResponse, errorResponse } = require('../../utils/response');
 
 const getAll = async (req, res) => {
   try {
     const { page = 1, limit = 10 } = req.query;
-    const data = await repository.findAll(page, limit);
+    const data = await service.getAllItems(page, limit);
     return baseResponse(res, { data });
   } catch (error) {
     return errorResponse(res, error);
@@ -58,12 +82,7 @@ const getAll = async (req, res) => {
 const getById = async (req, res) => {
   try {
     const { id } = req.params;
-    const data = await repository.findById(id);
-    
-    if (!data) {
-      return errorResponse(res, { message: 'Data tidak ditemukan' }, 404);
-    }
-    
+    const data = await service.getItemById(id);
     return baseResponse(res, { data });
   } catch (error) {
     return errorResponse(res, error);
@@ -72,8 +91,11 @@ const getById = async (req, res) => {
 
 const create = async (req, res) => {
   try {
-    const data = await repository.create(req.body);
-    return baseResponse(res, { data }, 201);
+    const data = await service.createItem(req.body);
+    return baseResponse(res, { 
+      data,
+      message: 'Data berhasil dibuat' 
+    }, 201);
   } catch (error) {
     return errorResponse(res, error);
   }
@@ -82,13 +104,11 @@ const create = async (req, res) => {
 const update = async (req, res) => {
   try {
     const { id } = req.params;
-    const data = await repository.update(id, req.body);
-    
-    if (!data) {
-      return errorResponse(res, { message: 'Data tidak ditemukan' }, 404);
-    }
-    
-    return baseResponse(res, { data });
+    const data = await service.updateItem(id, req.body);
+    return baseResponse(res, { 
+      data,
+      message: 'Data berhasil diupdate' 
+    });
   } catch (error) {
     return errorResponse(res, error);
   }
@@ -97,13 +117,10 @@ const update = async (req, res) => {
 const remove = async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await repository.remove(id);
-    
-    if (!result) {
-      return errorResponse(res, { message: 'Data tidak ditemukan' }, 404);
-    }
-    
-    return baseResponse(res, { message: 'Data berhasil dihapus' });
+    await service.deleteItem(id);
+    return baseResponse(res, { 
+      message: 'Data berhasil dihapus' 
+    });
   } catch (error) {
     return errorResponse(res, error);
   }
@@ -118,7 +135,62 @@ module.exports = {
 };
 ```
 
-### 3. Buat File Repository (`postgre_repository.js`)
+### 3. Buat File Service (`service.js`)
+
+Service menangani business logic:
+
+```javascript
+const repository = require('./repository');
+
+const getAllItems = async (page = 1, limit = 10) => {
+  return await repository.findAll(page, limit);
+};
+
+const getItemById = async (id) => {
+  const data = await repository.findById(id);
+  
+  if (!data) {
+    throw { message: 'Data tidak ditemukan', statusCode: 404 };
+  }
+  
+  return data;
+};
+
+const createItem = async (itemData) => {
+  // Business logic validation bisa ditambahkan di sini
+  return await repository.create(itemData);
+};
+
+const updateItem = async (id, itemData) => {
+  const existingItem = await repository.findById(id);
+  
+  if (!existingItem) {
+    throw { message: 'Data tidak ditemukan', statusCode: 404 };
+  }
+  
+  return await repository.update(id, itemData);
+};
+
+const deleteItem = async (id) => {
+  const existingItem = await repository.findById(id);
+  
+  if (!existingItem) {
+    throw { message: 'Data tidak ditemukan', statusCode: 404 };
+  }
+  
+  return await repository.remove(id);
+};
+
+module.exports = {
+  getAllItems,
+  getItemById,
+  createItem,
+  updateItem,
+  deleteItem
+};
+```
+
+### 4. Buat File Repository (`repository.js`)
 
 Repository berisi query ke database:
 
@@ -209,7 +281,7 @@ module.exports = {
 };
 ```
 
-### 4. Buat File Validation (`validation.js`)
+### 5. Buat File Validation (`validation.js`)
 
 Validation rules menggunakan express-validator:
 
@@ -276,68 +348,63 @@ module.exports = {
 };
 ```
 
-### 5. Buat File Index (`index.js`)
+### 6. Buat File Index (`index.js`)
 
 Export router dari module:
 
 ```javascript
 const express = require('express');
 const router = express.Router();
-const handler = require('./handler');
+const controller = require('./controller');
 const {
   createValidation,
   updateValidation,
   getByIdValidation,
   listValidation
 } = require('./validation');
-const { verifyToken } = require('../../middlewares');
-const { handleValidationErrors } = require('../../middlewares/validation');
+// Uncomment jika sudah ada authentication
+// const { verifyToken } = require('../../middlewares');
+const { validateMiddleware } = require('../../middlewares/validation');
 
-// Routes
 router.get(
   '/',
-  verifyToken,
   listValidation,
-  handleValidationErrors,
-  handler.getAll
+  validateMiddleware,
+  controller.getAll
 );
 
 router.get(
   '/:id',
-  verifyToken,
   getByIdValidation,
-  handleValidationErrors,
-  handler.getById
+  validateMiddleware,
+  controller.getById
 );
 
 router.post(
   '/',
-  verifyToken,
   createValidation,
-  handleValidationErrors,
-  handler.create
+  validateMiddleware,
+  controller.create
 );
 
 router.put(
   '/:id',
-  verifyToken,
   updateValidation,
-  handleValidationErrors,
-  handler.update
+  validateMiddleware,
+  controller.update
 );
 
 router.delete(
   '/:id',
-  verifyToken,
   getByIdValidation,
-  handleValidationErrors,
-  handler.remove
+  validateMiddleware,
+  controller.remove
 );
 
 module.exports = router;
 ```
 
-### 6. Daftarkan Route di Main Routes
+### 7. Daftarkan Route di Main Routes
 
 Edit file `src/routes/V1/index.js`:
 
@@ -349,7 +416,7 @@ const yourModule = require('../../modules/yourModule');
 routing.use(`${API_TAG}/your-endpoint`, yourModule);
 ```
 
-### 7. Buat Database Migration
+### 8. Buat Database Migration
 
 Buat migration untuk table:
 
@@ -388,7 +455,7 @@ Jalankan migration:
 npm run migrate
 ```
 
-### 8. Buat Seeder (Optional)
+### 9. Buat Seeder (Optional)
 
 Buat seeder untuk data awal:
 
@@ -433,8 +500,13 @@ npm run seed
 
 ## 🔒 Best Practices
 
-### 1. Repository Pattern
-Pisahkan database logic ke repository layer untuk memudahkan testing dan maintenance.
+### 1. MVC Pattern
+Pisahkan kode menjadi 3 layer:
+- **Controller**: HTTP request/response handling
+- **Service**: Business logic
+- **Repository**: Database operations
+
+Ini memudahkan testing, maintenance, dan kolaborasi antar programmer.
 
 ### 2. Error Handling
 Selalu gunakan try-catch dan return response yang konsisten:
@@ -457,7 +529,7 @@ router.post(
   verifyToken,
   createValidation,
   handleValidationErrors,
-  handler.create
+  controller.create
 );
 ```
 
